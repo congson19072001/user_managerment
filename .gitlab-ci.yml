@@ -1,0 +1,62 @@
+variables:
+  WORK_DIR: ${CI_PROJECT_NAME}
+  BRANCH: ${CI_COMMIT_REF_NAME}
+  REGISTRY: registry.gitlab.com/polkafantasy/sso-service
+
+stages:
+  - build
+  - deploy
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: always
+    - when: never
+
+build:
+  stage: build
+  before_script:
+    - sudo touch .env
+    - sudo chmod 777 .env
+    - sudo echo DB_CONNECTION=$DB_CONNECTION >> .env
+    - sudo echo DB_HOST=$DB_HOST >> .env
+    - sudo echo DB_PORT=$DB_PORT >> .env
+    - sudo echo DB_USER=$DB_USER >> .env
+    - sudo echo DB_PASS=$DB_PASS >> .env
+    - sudo echo DB_NAME=$DB_NAME >> .env
+    - sudo echo JWT_SECRET=$JWT_SECRET >> .env
+    - sudo echo JWT_EXPIRED=$JWT_EXPIRED >> .env
+    - sudo echo CODE_URL_JWT_EXPIRED=$CODE_URL_JWT_EXPIRED >> .env
+    - sudo echo JWT_REFRESH_TOKEN_EXPIRED=$JWT_REFRESH_TOKEN_EXPIRED >> .env
+    - sudo echo REDIS_EXPIRE_ACCESS_TOKEN=$REDIS_EXPIRE_ACCESS_TOKEN >> .env
+    - sudo echo REDIS_EXPIRE_REFRESH_TOKEN=$REDIS_EXPIRE_REFRESH_TOKEN >> .env
+    - sudo echo MAIL_HOST=$MAIL_HOST >> .env
+    - sudo echo MAIL_USER=$MAIL_USER >> .env
+    - sudo echo MAIL_PASS=$MAIL_PASS >> .env
+    - sudo echo SSO_ROOT_DOMAIN=$SSO_ROOT_DOMAIN >> .env
+    - sudo echo GAME_MARKET_FRONTEND=$GAME_MARKET_FRONTEND >> .env
+    - sudo echo REDIS_HOST=$REDIS_HOST >> .env
+    - sudo echo REDIS_PORT=$REDIS_PORT >> .env
+    - sudo echo REDIS_DB_CACHE=$REDIS_DB_CACHE >> .env
+    - sudo echo SIGNATURE_TEXT=$SIGNATURE_TEXT >> .env
+    - sudo echo LOGIN_LIMIT_TIMES=$LOGIN_LIMIT_TIMES >> .env
+    - sudo echo LOGIN_INTERVAL_TRY_TIME=$LOGIN_INTERVAL_TRY_TIME >> .env
+    - sudo echo LOGIN_BLOCK_TIME=$LOGIN_BLOCK_TIME >> .env
+  script:
+    - sudo docker login -u $GITLAB_USERNAME -p $GITLAB_ACCESS_TOKEN registry.gitlab.com
+    - sudo docker build -t $REGISTRY .
+    - sudo docker push $REGISTRY
+  tags:
+    - nodejs
+
+deploy:
+  stage: deploy
+  script:
+    - sudo docker login -u $GITLAB_USERNAME -p $GITLAB_ACCESS_TOKEN registry.gitlab.com
+    - sudo docker pull $REGISTRY
+    - sudo docker stop sso-service || true
+    - sudo docker rm sso-service || true
+    - sudo docker run --name=sso-service -d -p 3344:3344 --restart on-failure:5 $REGISTRY
+  tags:
+    - nodejs
+
